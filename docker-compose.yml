@@ -1,0 +1,72 @@
+# ── Reticulum Beacon ──────────────────────────────────────────────────────
+# docker compose up -d
+# docker compose logs -f
+# ──────────────────────────────────────────────────────────────────────────
+
+services:
+  beacon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reticulum-beacon
+    restart: unless-stopped
+
+    # ── Ports ──────────────────────────────────────────────────────────
+    # API + Web UI (default 8931)
+    ports:
+      - "${BEACON_PORT:-8931}:8931"
+
+    # ── Environment ────────────────────────────────────────────────────
+    # Copy .env.example to .env and fill in your values
+    env_file:
+      - path: .env
+        required: false
+
+    environment:
+      # Override BEACON_API_KEY in .env or here
+      - BEACON_API_KEY=${BEACON_API_KEY:-}
+      - BEACON_CORS_ORIGINS=${BEACON_CORS_ORIGINS:-}
+      # AI bot configuration (optional)
+      - BEACON_AI_API_KEY=${BEACON_AI_API_KEY:-}
+      - BEACON_AI_API_URL=${BEACON_AI_API_URL:-}
+      - BEACON_AI_MODEL=${BEACON_AI_MODEL:-llama3.2}
+      - BEACON_AI_PREFIX=${BEACON_AI_PREFIX:-/ai}
+
+    # ── Volumes ────────────────────────────────────────────────────────
+    volumes:
+      - beacon-data:/etc/reticulum-beacon
+
+    # ── Health Check ───────────────────────────────────────────────────
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:8931/api/v1/health > /dev/null 2>&1 || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # ── Resource Limits ────────────────────────────────────────────────
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+    # ── Security ───────────────────────────────────────────────────────
+    # Note: read-only rootfs is not enabled because the beacon writes config
+    # to ~/.beacon/ (not the volume mount). If running with custom config,
+    # mount ~/.beacon/ to a volume and add read_only: true.
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  beacon-data:
+    name: reticulum-beacon-data

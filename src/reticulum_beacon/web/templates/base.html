@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' https://unpkg.com; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*;">
+  <title>{% block title %}Reticulum Beacon{% endblock %}</title>
+  {# ── HTMX with local fallback ────────────────────── #}
+  {% set htmx_url = local_assets.get('htmx', 'https://unpkg.com/htmx.org@2.0.4') if local_assets else 'https://unpkg.com/htmx.org@2.0.4' %}
+  {% set htmx_sse_url = local_assets.get('htmx_sse', 'https://unpkg.com/htmx.org@2.0.4/dist/ext/sse.js') if local_assets else 'https://unpkg.com/htmx.org@2.0.4/dist/ext/sse.js' %}
+  {% set tailwind_url = local_assets.get('tailwind', 'https://cdn.jsdelivr.net/npm/@tailwindcss/ui@latest/dist/tailwind-ui.min.css') if local_assets else 'https://cdn.jsdelivr.net/npm/@tailwindcss/ui@latest/dist/tailwind-ui.min.css' %}
+  <script src="{{ htmx_url }}"
+          {% if not local_assets %}integrity="sha384-HGfztofotPfshZlS2N9UFjCXg3Bz0vMJA5ntzCq/N3k2I6oyPmmVMqKJZLCgW2Mx"{% endif %}
+          crossorigin="anonymous"
+          defer></script>
+  <script src="{{ htmx_sse_url }}"
+          {% if not local_assets %}integrity="sha384-d4K4kGJbHZ/3lP5NNBFqKj38RggVhWNjM8NWxiB3E7Z0GYMo9bmG8g/qkqUFy5P"{% endif %}
+          crossorigin="anonymous"
+          defer></script>
+  <script defer>
+    document.addEventListener('htmx:beforeSwap', function(evt) {
+      if (evt.detail.target && evt.detail.target.id === 'status-bar') return;
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+      const dash = document.getElementById('dashboard-content');
+      if (dash && dash.getAttribute('hx-get')) {
+        setInterval(function() {
+          htmx.trigger(dash, 'htmx:load');
+        }, 30000);
+      }
+    });
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-confirm]');
+      if (btn) {
+        if (!confirm(btn.dataset.confirm)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }
+    });
+  </script>
+  <link rel="stylesheet"
+        href="{{ tailwind_url }}"
+        crossorigin="anonymous">
+  <style>
+    body { background-color: #0f172a; color: #e2e8f0; }
+    .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; }
+    .card-header { border-bottom: 1px solid #334155; padding: 1rem 1.5rem; }
+    .card-body { padding: 1.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #38bdf8; }
+    .stat-label { font-size: 0.875rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-online { background-color: #065f46; color: #6ee7b7; }
+    .badge-offline { background-color: #7f1d1d; color: #fca5a5; }
+    .badge-warn { background-color: #78350f; color: #fcd34d; }
+    .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; transition: all 150ms ease; cursor: pointer; border: none; }
+    .btn-primary { background-color: #2563eb; color: #fff; }
+    .btn-primary:hover { background-color: #1d4ed8; }
+    .btn-danger { background-color: #dc2626; color: #fff; }
+    .btn-danger:hover { background-color: #b91c1c; }
+    .btn-ghost { background-color: transparent; color: #94a3b8; border: 1px solid #475569; }
+    .btn-ghost:hover { background-color: #1e293b; color: #e2e8f0; }
+    .input { width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #475569; background-color: #0f172a; color: #e2e8f0; font-size: 0.875rem; }
+    .input:focus { outline: none; border-color: #2563eb; ring: 2px solid #2563eb; }
+    .sidebar-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.5rem; color: #94a3b8; text-decoration: none; transition: all 150ms ease; }
+    .sidebar-link:hover { background-color: #1e293b; color: #e2e8f0; }
+    .sidebar-link.active { background-color: #1e3a5f; color: #38bdf8; }
+    .toast { position: fixed; bottom: 1rem; right: 1rem; padding: 0.75rem 1.5rem; border-radius: 0.5rem; background-color: #1e293b; border: 1px solid #334155; color: #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 50; }
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+    .htmx-request.htmx-indicator { opacity: 1; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="flex h-screen overflow-hidden">
+    {# ── Sidebar ──────────────────────────────────────── #}
+    <aside class="w-64 flex-shrink-0 border-r border-slate-700/50 bg-slate-900/50 overflow-y-auto">
+      <div class="p-4 border-b border-slate-700/50">
+        <a href="/" class="flex items-center gap-2 no-underline">
+          <span class="text-2xl">🔴</span>
+          <div>
+            <div class="text-sm font-bold text-slate-100">Reticulum</div>
+            <div class="text-xs text-slate-400">Beacon</div>
+          </div>
+        </a>
+      </div>
+      <nav class="p-3 space-y-1" id="sidebar-nav">
+        <a href="/" class="sidebar-link {{ 'active' if active_page == 'dashboard' else '' }}">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          Dashboard
+        </a>
+        <a href="/messages" class="sidebar-link {{ 'active' if active_page == 'messages' else '' }}">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          Messages
+        </a>
+        <a href="/bots" class="sidebar-link {{ 'active' if active_page == 'bots' else '' }}">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          Bots
+        </a>
+        <a href="/interfaces" class="sidebar-link {{ 'active' if active_page == 'interfaces' else '' }}">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/></svg>
+          Interfaces
+        </a>
+      </nav>
+      {# ── Quick status bar ──────────────────────────── #}
+      <div class="absolute bottom-0 left-0 w-64 p-3 border-t border-slate-700/50 bg-slate-900/90" id="status-bar">
+        <div class="flex items-center gap-2 text-xs text-slate-400" hx-get="/api/v1/web/status-bar" hx-trigger="every 15s" hx-swap="outerHTML">
+          <span class="inline-block w-2 h-2 rounded-full bg-slate-600" id="status-dot"></span>
+          <span id="status-text">Connecting...</span>
+        </div>
+      </div>
+    </aside>
+
+    {# ── Main content ─────────────────────────────────── #}
+    <main class="flex-1 overflow-y-auto p-6" id="main-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {# ── Toast notifications via SSE ────────────────────── #}
+  <div id="toast-container" class="toast hidden"></div>
+
+  {# ── HTMX error handling ─────────────────────────── #}
+  <script>
+    document.body.addEventListener('htmx:responseError', function(evt) {
+      const toast = document.getElementById('toast-container');
+      if (toast) {
+        toast.textContent = '\u26a0\ufe0f Request failed: ' + (evt.detail.xhr.statusText || 'unknown error');
+        toast.classList.remove('hidden');
+        setTimeout(function() { toast.classList.add('hidden'); }, 5000);
+      }
+    });
+    document.body.addEventListener('htmx:sendError', function(evt) {
+      const toast = document.getElementById('toast-container');
+      if (toast) {
+        toast.textContent = '\u26a0\ufe0f Network error \u2014 is the API server running?';
+        toast.classList.remove('hidden');
+        setTimeout(function() { toast.classList.add('hidden'); }, 5000);
+      }
+    });
+  </script>
+</body>
+</html>

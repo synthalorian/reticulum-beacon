@@ -1,0 +1,51 @@
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+MANIFEST
+
+# ── Virtual environment ─────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── IDE / Editor ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Environment files ───────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.development
+
+# ── Reticulum Beacon runtime data ───────────────────────────────────────
+# Config, identities, certs, and audit logs are generated at runtime
+# in ~/.beacon/ — never commit them.
+.beacon/
+
+# ── Static assets (downloaded at runtime) ───────────────────────────────
+static/*.js
+static/*.css
+!static/__init__.py
+!static/download.py
+
+# ── Systemd (example template kept, installed service file not) ─────────
+systemd/*.service
+!systemd/*.service.example
+
+# ── Test / Coverage ─────────────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ── mypy / ruff ─────────────────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/

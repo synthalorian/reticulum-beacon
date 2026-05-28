@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Bots — Reticulum Beacon{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold text-slate-100 mb-6">🤖 Bots</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {# ── Registered Bots ────────────────────────── #}
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-semibold text-slate-100">Registered Bots</h2>
+      </div>
+      <div class="card-body" id="bot-list" hx-get="/api/v1/web/bots/list" hx-trigger="load, every 10s" hx-swap="innerHTML">
+        <div class="text-center py-8 text-slate-500">Loading bots...</div>
+      </div>
+    </div>
+
+    {#─ Load Bot Plugin ─────────────────────────── #}
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-semibold text-slate-100">Load Plugin</h2>
+      </div>
+      <div class="card-body">
+        <form hx-post="/api/v1/web/bots/load" hx-target="#load-result" hx-swap="innerHTML"
+              class="space-y-4"
+              hx-on::after-request="if(event.detail.successful) this.reset()">
+          <div>
+            <label for="class-path" class="block text-sm font-medium text-slate-300 mb-1">Class Path</label>
+            <input type="text" id="class-path" name="class_path" required
+                   placeholder="e.g. reticulum_beacon.bots.echo.EchoBot"
+                   class="input font-mono text-sm">
+            <p class="text-xs text-slate-500 mt-1">Fully-qualified Python class name</p>
+          </div>
+          <button type="submit" class="btn btn-primary">Load</button>
+          <div id="load-result"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {#─ Available Plugins ────────────────────────── #}
+  <div class="card mt-6">
+    <div class="card-header">
+      <h2 class="text-lg font-semibold text-slate-100">Available Plugins</h2>
+    </div>
+    <div class="card-body" id="available-bots" hx-get="/api/v1/web/bots/available" hx-trigger="load" hx-swap="innerHTML">
+      <div class="text-center py-4 text-slate-500">Loading...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
