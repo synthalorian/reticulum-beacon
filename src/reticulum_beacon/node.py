@@ -100,7 +100,7 @@ class BeaconNode:
 
         RNS.loglevel = RNS.LOG_NOTICE
 
-        from ..audit import log_system
+        from .audit import log_system
 
         log_system("start", {"identity": RNS.hexrep(self.identity.hash)})
 
@@ -119,7 +119,7 @@ class BeaconNode:
             self.identity,
             RNS.Destination.IN,
             RNS.Destination.SINGLE,
-            "reticulum.beacon",
+            "beacon",
             "node",
         )
 
@@ -145,7 +145,7 @@ class BeaconNode:
         if not self._running:
             return
 
-        from ..audit import log_system
+        from .audit import log_system
 
         log_system("stop", {"uptime": round(self.uptime, 1)})
 
