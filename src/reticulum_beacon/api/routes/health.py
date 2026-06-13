@@ -86,7 +86,7 @@ def _compute_overall_health() -> str:
 
     # Propagation is optional — missing propagation is just a warning
     if not prop_status["running"]:
-        return "ok"  # Core node is fine without propagation
+        return "warning"  # Core node is fine without propagation, but warn
 
     return "ok"
 
@@ -104,7 +104,7 @@ async def health_check():
         - components: per-subsystem status dict
     """
     overall = _compute_overall_health()
-    http_status = 200 if overall in ("ok", "warning") else 503
+    status_code = 200 if overall in ("ok", "warning") else 503
 
     node_health = _check_node_health()
     prop_health = _check_propagation_health()
@@ -120,7 +120,7 @@ async def health_check():
 
     from fastapi.responses import JSONResponse
 
-    return JSONResponse(content=response_data, status_code=http_status)
+    return JSONResponse(content=response_data, status_code=status_code)
 
 
 @router.get("/health/self-test")

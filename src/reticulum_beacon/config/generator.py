@@ -62,7 +62,6 @@ def generate_config(
     enable_transport: bool = True,
     testnet_nodes: list[tuple[str, int]] | None = None,
     autointerface: bool = True,
-    _append: bool = False,
 ) -> str:
     """Generate a Reticulum config file as a string.
 
@@ -70,7 +69,6 @@ def generate_config(
         enable_transport: Whether to enable transport mode.
         testnet_nodes: List of (host, port) tuples for TCP client interfaces.
         autointerface: Whether to enable AutoInterface for local discovery.
-        append: If True, append to existing config instead of overwriting.
 
     Returns:
         The config file contents as a string.

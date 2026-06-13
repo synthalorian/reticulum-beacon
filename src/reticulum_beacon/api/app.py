@@ -86,7 +86,12 @@ def create_app() -> FastAPI:
     if cors_origins_env:
         allow_origins = [o.strip() for o in cors_origins_env.split(",")]
     else:
-        allow_origins = ["http://127.0.0.1", "http://localhost"]
+        allow_origins = [
+            "http://127.0.0.1",
+            "http://localhost",
+            "https://127.0.0.1",
+            "https://localhost",
+        ]
 
     app.add_middleware(
         CORSMiddleware,
@@ -141,12 +146,12 @@ def create_app() -> FastAPI:
             or path.startswith("/api/v1/web/")
         ):
             return await call_next(request)
-        # Web UI pages are auth-free (only accessible from localhost by default)
-        if path in {"/", "/api/v1/"} or path in (
-            "/api/v1/messages",
-            "/api/v1/bots",
-            "/api/v1/interfaces",
-        ):
+    # Web UI pages are auth-free (only accessible from localhost by default)
+        if path in {"/", "/api/v1/"}:
+            return await call_next(request)
+
+        # Allow CORS preflight requests
+        if request.method == "OPTIONS":
             return await call_next(request)
 
         auth_header = request.headers.get("authorization", "")

@@ -75,7 +75,7 @@ async def dashboard(request: Request):
     return _templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"active_page": "dashboard"},
+        context={"request": request, "active_page": "dashboard"},
     )
 
 
@@ -167,7 +167,7 @@ async def messages_page(request: Request):
     return _templates.TemplateResponse(
         request=request,
         name="messages.html",
-        context={"active_page": "messages"},
+        context={"request": request, "active_page": "messages"},
     )
 
 
@@ -212,9 +212,9 @@ async def inbox_fragment(_request: Request):
     if not entries:
         return HTMLResponse('<div class="text-center py-8 text-slate-500">No messages stored</div>')
 
-    html = '<div class="space-y-2">'
+    html_parts = ['<div class="space-y-2">']
     for e in entries:
-        html += (
+        html_parts.append(
             f'<div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">'
             f'<div class="flex justify-between text-xs">'
             f'<span class="font-mono text-sky-400">{e["sender"]}</span>'
@@ -223,8 +223,8 @@ async def inbox_fragment(_request: Request):
             f'<div class="text-xs text-slate-400 mt-1">hash: {e["hash"]}</div>'
             f"</div>"
         )
-    html += "</div>"
-    return HTMLResponse(html)
+    html_parts.append("</div>")
+    return HTMLResponse("".join(html_parts))
 
 
 @router.post("/web/messages/send", response_class=HTMLResponse, include_in_schema=False)
@@ -276,7 +276,7 @@ async def bots_page(request: Request):
     return _templates.TemplateResponse(
         request=request,
         name="bots.html",
-        context={"active_page": "bots"},
+        context={"request": request, "active_page": "bots"},
     )
 
 
@@ -291,13 +291,13 @@ async def bot_list_fragment(_request: Request):
     if not bots:
         return HTMLResponse('<div class="text-center py-6 text-slate-500">No bots registered</div>')
 
-    html = '<div class="space-y-2">'
+    html_parts = ['<div class="space-y-2">']
     for bot in bots:
         enabled = bot.get("enabled", False)
         status = "✅" if enabled else "⏸️"
         toggle_action = "disable" if enabled else "enable"
         toggle_label = "Disable" if enabled else "Enable"
-        html += (
+        html_parts.append(
             f'<div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">'
             f"<div>"
             f'<div class="flex items-center gap-2"><span>{status}</span><span class="font-medium text-slate-200">{bot["name"]}</span></div>'
@@ -310,8 +310,8 @@ async def bot_list_fragment(_request: Request):
             f"</button>"
             f"</div>"
         )
-    html += "</div>"
-    return HTMLResponse(html)
+    html_parts.append("</div>")
+    return HTMLResponse("".join(html_parts))
 
 
 @router.get("/web/bots/available", response_class=HTMLResponse, include_in_schema=False)
@@ -327,17 +327,17 @@ async def bot_available_fragment(_request: Request):
             '<div class="text-center py-4 text-slate-500">No additional plugins discovered</div>'
         )
 
-    html = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'
+    html_parts = ['<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">']
     for bot in available:
-        html += (
+        html_parts.append(
             f'<div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">'
             f'<div class="font-medium text-sm text-slate-200">{bot["name"]}</div>'
             f'<div class="text-xs text-slate-400">{bot.get("description", "")}</div>'
             f'<div class="text-xs font-mono text-slate-500 mt-1">{bot["module"]}.{bot["class_name"]}</div>'
             f"</div>"
         )
-    html += "</div>"
-    return HTMLResponse(html)
+    html_parts.append("</div>")
+    return HTMLResponse("".join(html_parts))
 
 
 @router.post("/web/bots/enable/{name}", response_class=HTMLResponse, include_in_schema=False)
@@ -422,7 +422,7 @@ async def interfaces_page(request: Request):
     return _templates.TemplateResponse(
         request=request,
         name="interfaces.html",
-        context={"active_page": "interfaces"},
+        context={"request": request, "active_page": "interfaces"},
     )
 
 
@@ -462,10 +462,10 @@ async def interfaces_fragment(_request: Request):
             f'<div class="text-center py-6 text-slate-500">{interface_count} interface(s) available</div>'
         )
 
-    html = '<div class="space-y-2">'
+    html_parts = ['<div class="space-y-2">']
     for iface in interfaces:
         dot = "bg-green-500" if iface["online"] else "bg-red-500"
-        html += (
+        html_parts.append(
             f'<div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">'
             f'<div class="flex items-center gap-3">'
             f'<span class="inline-block w-2 h-2 rounded-full {dot}"></span>'
@@ -476,8 +476,8 @@ async def interfaces_fragment(_request: Request):
             f"</div>"
             f"</div>"
         )
-    html += "</div>"
-    return HTMLResponse(html)
+    html_parts.append("</div>")
+    return HTMLResponse("".join(html_parts))
 
 
 @router.get("/web/peers", response_class=HTMLResponse, include_in_schema=False)
@@ -507,9 +507,9 @@ async def peers_fragment(_request: Request):
             '<div class="text-center py-6 text-slate-500">No peers discovered yet</div>'
         )
 
-    html = '<div class="space-y-2">'
+    html_parts = ['<div class="space-y-2">']
     for peer in peer_list:
-        html += (
+        html_parts.append(
             f'<div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">'
             f"<div>"
             f'<div class="font-medium text-sm text-slate-200">{peer["name"]}</div>'
@@ -518,5 +518,5 @@ async def peers_fragment(_request: Request):
             f'<span class="badge badge-online text-xs">{peer["type"]}</span>'
             f"</div>"
         )
-    html += "</div>"
-    return HTMLResponse(html)
+    html_parts.append("</div>")
+    return HTMLResponse("".join(html_parts))

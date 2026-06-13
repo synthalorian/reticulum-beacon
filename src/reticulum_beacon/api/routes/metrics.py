@@ -175,7 +175,10 @@ def _collect_core_metrics(running: bool) -> None:
             pass
         _ifaces_online.set(online)
         _connectivity_gauge.set(1 if online > 0 else 0)
-        _health_status.set(3 if online == 0 else 1)  # degraded vs ok
+        health_status = 1
+        if online == 0:
+            health_status = 3
+        _health_status.set(health_status)
     else:
         _transport_gauge.set(0)
         _ifaces_active.set(0)

@@ -32,6 +32,8 @@ class BeaconNode:
         self._stop_event = threading.Event()
         self._announce_thread: threading.Thread | None = None
         self._announce_stop = threading.Event()
+        self._keepalive_thread: threading.Thread | None = None
+        self._keepalive_stop = threading.Event()
         self._beacon_destination: RNS.Destination | None = None
         self._propagation_node = None  # Set externally by cli/commands
         self._api_server = None  # Set externally by cli/commands
@@ -90,9 +92,7 @@ class BeaconNode:
             return
 
         # Ensure setup is done
-        if not cfg.config_exists():
-            self.setup()
-        if not cfg.identity_exists():
+        if not cfg.config_exists() or not cfg.identity_exists():
             self.setup()
 
         # Load identity before initializing RNS
@@ -139,11 +139,40 @@ class BeaconNode:
 
         if foreground:
             self._wait_for_stop()
+        else:
+            # In background mode, keep a non-daemon heartbeat thread alive
+            # so the process doesn't exit when the main thread returns.
+            if self._keepalive_thread is not None and self._keepalive_thread.is_alive():
+                return
+            self._keepalive_stop = threading.Event()
+            self._keepalive_thread = threading.Thread(
+                target=self._keepalive_loop,
+                daemon=False,
+                name="beacon-keepalive",
+            )
+            self._keepalive_thread.start()
+
+    def _keepalive_loop(self) -> None:
+        """Keep the process alive in background mode."""
+        while not self._keepalive_stop.is_set() and self._running:
+            self._keepalive_stop.wait(timeout=1.0)
+
+    def request_stop(self) -> None:
+        """Signal the keepalive loop to exit (for background mode)."""
+        if hasattr(self, '_keepalive_stop'):
+            self._keepalive_stop.set()
+        self.stop()
 
     def stop(self) -> None:
         """Gracefully shut down all subsystems."""
         if not self._running:
             return
+
+        # Signal keepalive thread to exit first
+        if hasattr(self, '_keepalive_stop'):
+            self._keepalive_stop.set()
+        if hasattr(self, '_keepalive_thread') and self._keepalive_thread and self._keepalive_thread.is_alive():
+            self._keepalive_thread.join(timeout=2)
 
         from .audit import log_system
 
@@ -188,15 +217,24 @@ class BeaconNode:
 
         Announces immediately on start, then repeats at intervals.
         """
+        consecutive_errors = 0
         while not self._announce_stop.is_set():
             if self._beacon_destination and self._running:
                 try:
                     self._beacon_destination.announce()
+                    consecutive_errors = 0
                 except Exception as e:
-                    RNS.log(
-                        f"Announce failed: {e}",
-                        RNS.LOG_ERROR,
-                    )
+                    consecutive_errors += 1
+                    if consecutive_errors <= 5:
+                        RNS.log(
+                            f"Announce failed: {e}",
+                            RNS.LOG_ERROR,
+                        )
+                    elif consecutive_errors == 6:
+                        RNS.log(
+                            "Announce errors suppressed after 5 consecutive failures",
+                            RNS.LOG_ERROR,
+                        )
 
             # Wait for the next announce interval, or stop signal
             self._announce_stop.wait(timeout=ANNOUNCE_INTERVAL)

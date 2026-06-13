@@ -690,13 +690,21 @@ class TestAuditLog(unittest.TestCase):
             audit.log_event("padding", "INFO", large_details)
 
         # Force rotation by writing again
-        audit._rotated_this_session = False
-        audit._MAX_LOG_BYTES = 1  # 1 byte — force immediate rotation
-        audit.log_event("rotate_test", "INFO", {})
+        orig_rotated = audit._rotated
+        orig_max_bytes = audit._MAX_LOG_BYTES
+        try:
+            audit._rotated = False
+            audit._MAX_LOG_BYTES = 1  # 1 byte — force immediate rotation
+            audit.log_event("rotate_test", "INFO", {})
 
-        # The .old file should exist
-        old_path = audit.AUDIT_LOG_PATH + ".old"
-        self.assertTrue(os.path.exists(old_path))
+            # The .old file should exist
+            old_path = audit.AUDIT_LOG_PATH + ".old"
+            self.assertTrue(os.path.exists(old_path))
+        finally:
+            audit._rotated = orig_rotated
+            audit._MAX_LOG_BYTES = orig_max_bytes
+            if os.path.exists(old_path):
+                os.unlink(old_path)
 
     def test_log_auth_success(self):
         """Test log_auth helper."""

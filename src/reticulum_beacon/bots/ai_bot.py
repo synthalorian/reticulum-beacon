@@ -19,6 +19,8 @@ class AIBot(BeaconBot):
     name = "ai"
     description = "AI assistant powered by an OpenAI-compatible LLM API"
     version = "0.1.0"
+    _MAX_CONVERSATIONS = 100
+    _MAX_CONVERSATION_HISTORY = 20
 
     def __init__(self, propagation_node=None):
         super().__init__(propagation_node)
@@ -55,22 +57,28 @@ class AIBot(BeaconBot):
                 }
             ]
 
+        if len(self._conversations) > self._MAX_CONVERSATIONS:
+            oldest = min(self._conversations, key=lambda k: len(self._conversations[k]))
+            del self._conversations[oldest]
+
         self._conversations[sender_key].append({"role": "user", "content": prompt})
 
         try:
             response_text = self._query_llm(self._conversations[sender_key])
             self._conversations[sender_key].append({"role": "assistant", "content": response_text})
 
-            # Trim conversation history to last 20 messages
-            if len(self._conversations[sender_key]) > 20:
+            if len(self._conversations[sender_key]) > self._MAX_CONVERSATION_HISTORY:
                 self._conversations[sender_key] = [
                     self._conversations[sender_key][0],
-                    *self._conversations[sender_key][-19:],
+                    *self._conversations[sender_key][-(self._MAX_CONVERSATION_HISTORY - 1) :],
                 ]
 
             self.reply(message, content=response_text, title="AI Response")
 
         except Exception as e:
+            import RNS
+
+            RNS.log(f"AI bot error for sender {sender_key}: {e}", RNS.LOG_ERROR)
             self.reply(
                 message,
                 content=f"Error querying AI: {e}",
@@ -104,12 +112,16 @@ class AIBot(BeaconBot):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
-                return result["choices"][0]["message"]["content"]
+                choices = result.get("choices", [])
+                if not choices:
+                    raise RuntimeError("LLM API returned empty choices")
+                return choices[0]["message"]["content"]
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8", errors="replace")
-            # Redact any API key that might be in the error response body
             if self.api_key:
                 error_body = error_body.replace(self.api_key, "***")
             raise RuntimeError(f"API returned status {e.code}") from e
         except urllib.error.URLError as e:
             raise RuntimeError(f"Could not reach LLM API: {e.reason}") from e
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON response from LLM API: {e}") from e

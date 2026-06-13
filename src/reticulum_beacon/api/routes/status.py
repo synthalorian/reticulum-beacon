@@ -27,13 +27,3 @@ async def get_status():
         }
 
     return status_data
-
-
-@router.get("/health")
-async def health_check():
-    """Simple health check endpoint."""
-    node = BeaconNode.get_instance()
-    return {
-        "status": "ok" if node.is_running else "stopped",
-        "uptime_seconds": node.uptime,
-    }

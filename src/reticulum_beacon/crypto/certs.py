@@ -120,7 +120,7 @@ def _generate_via_cryptography() -> bool:
             ]
         )
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         cert = (
             x509.CertificateBuilder()
             .subject_name(subject)

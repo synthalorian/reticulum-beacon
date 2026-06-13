@@ -49,3 +49,9 @@ htmlcov/
 # ── mypy / ruff ─────────────────────────────────────────────────────────
 .mypy_cache/
 .ruff_cache/
+
+# AI session artifacts
+.sandbox-home/
+.claw/
+.omo/
+.clawd-todos.json

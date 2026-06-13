@@ -61,7 +61,7 @@ def _audit_entry(event_type: str, severity: str, details: dict) -> dict:
     """Build a structured audit log entry dict."""
     return {
         "ts": time.time(),
-        "iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S."),
+        "iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "event": event_type,
         "sev": severity,
         "details": details,

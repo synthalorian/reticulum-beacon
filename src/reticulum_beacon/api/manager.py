@@ -109,6 +109,9 @@ class APIServer:
         if self._server is not None:
             self._server.should_exit = True
 
+        if self._server_thread is not None and self._server_thread.is_alive():
+            self._server_thread.join(timeout=5)
+
     def _resolve_tls(self) -> tuple[str | None, str | None]:
         """Resolve TLS certificate and key paths.
 
@@ -146,6 +149,7 @@ class APIServer:
                 log_level="info",
                 access_log=False,
                 # Limit request body size to 1 MB
+                h11_max_incomplete_event_size=1024 * 1024,
                 ssl_certfile=ssl_certfile,
                 ssl_keyfile=ssl_keyfile,
             )

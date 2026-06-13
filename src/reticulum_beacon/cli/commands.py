@@ -96,7 +96,7 @@ def start(
             )
             node._propagation_node = pn
 
-            # Wire up bot delivery if bot registry exists            # Wire up bot delivery if bot registry exists
+            # Wire up bot delivery if bot registry exists
             from ..bots.loader import BotRegistry
 
             reg = BotRegistry.get_instance()
@@ -145,13 +145,13 @@ def stop() -> None:
 
     pn = PropagationNode.get_instance()
     if pn.is_running:
-        typer.echo("  🛑 Stopping LXMF propagation node...")
+        typer.echo("🛑 Stopping LXMF propagation node...")
         pn.stop()
+        typer.echo("  ✅ Propagation node stopped")
 
-    typer.echo("🛑 Stopping Reticulum Beacon...")
-    node.stop()
-    typer.echo("✅ Beacon node stopped")
-
+    typer.echo("🛑 Stopping Beacon node...")
+    node.request_stop()
+    typer.echo("👋 Beacon node stopped")
 
 def status() -> None:
     """Show current node status and statistics."""
@@ -214,7 +214,7 @@ def config(
     cfg_path = cfg.rns_config_path()
 
     if show:
-        with open(cfg_path) as f:
+        with open(cfg_path, encoding="utf-8") as f:
             typer.echo(f.read())
     elif edit:
         editor = os.environ.get("EDITOR", "nano")
@@ -620,7 +620,8 @@ def api_status() -> None:
         typer.echo(f"    {api_srv.url}/api/v1/messages")
         typer.echo(f"    {api_srv.url}/api/v1/metrics")
         host_part = api_srv.url.split("://")[1]
-        typer.echo(f"    ws://{host_part}/api/v1/events")
+        ws_scheme = "wss" if api_srv.url.startswith("https://") else "ws"
+        typer.echo(f"    {ws_scheme}://{host_part}/api/v1/events")
     else:
         typer.echo("  Status: ⏸️  Offline")
 

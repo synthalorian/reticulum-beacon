@@ -182,23 +182,28 @@ class BotRegistry:
 
     def _scheduler_loop(self) -> None:
         """Tick every 30 seconds, running scheduled() on bots that are due."""
-        while not self._schedule_stop.is_set():
-            now = time.time()
-            for bot in self._bots.values():
-                if (
-                    bot.enabled
-                    and bot.schedule_interval > 0
-                    and now - bot._last_scheduled >= bot.schedule_interval
-                ):
-                    try:
-                        bot.scheduled()
-                        bot._last_scheduled = now
-                    except Exception as e:
-                        import RNS
+        try:
+            while not self._schedule_stop.is_set():
+                now = time.time()
+                for bot in self._bots.values():
+                    if (
+                        bot.enabled
+                        and bot.schedule_interval > 0
+                        and now - bot._last_scheduled >= bot.schedule_interval
+                    ):
+                        try:
+                            bot.scheduled()
+                            bot._last_scheduled = now
+                        except Exception as e:
+                            import RNS
 
-                        RNS.log(f"Bot '{bot.name}' error scheduled: {e}", RNS.LOG_ERROR)
+                            RNS.log(f"Bot '{bot.name}' error scheduled: {e}", RNS.LOG_ERROR)
 
-            self._schedule_stop.wait(timeout=30)
+                self._schedule_stop.wait(timeout=30)
+        except Exception as e:
+            import RNS
+
+            RNS.log(f"Bot scheduler thread crashed: {e}", RNS.LOG_ERROR)
 
 
 # For convenience, import BeaconBot here so subclasses can reference it

@@ -28,7 +28,9 @@ TAILWIND_URL = "https://cdn.jsdelivr.net/npm/@tailwindcss/ui@latest/dist/tailwin
 def _download(url: str, dest: str) -> None:
     """Download a single file from *url* to *dest*."""
     print(f"  ↓ {url.rsplit('/', maxsplit=1)[-1]} → {os.path.relpath(dest, STATIC_DIR)}")
-    urllib.request.urlretrieve(url, dest)
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=30) as response, open(dest, "wb") as f:
+        f.write(response.read())
 
 
 def download_assets() -> None:

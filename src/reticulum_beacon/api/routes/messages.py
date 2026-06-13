@@ -28,9 +28,6 @@ async def get_messages():
     # Return basic stats for now; full inbox requires LXMF sync
     return {
         "messages": [],
-        "total": len(pn.router.propagation_entries)
-        if hasattr(pn.router, "propagation_entries")
-        else 0,
         "stored_messages": len(pn.router.propagation_entries)
         if hasattr(pn.router, "propagation_entries")
         else 0,
