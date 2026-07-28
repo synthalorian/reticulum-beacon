@@ -31,7 +31,12 @@ env/
 # in ~/.beacon/ — never commit them.
 .beacon/
 
-# ── Static assets (downloaded at runtime) ───────────────────────────────
+# ── Static assets (downloaded at runtime into the package) ──────────────
+src/reticulum_beacon/static/*.js
+src/reticulum_beacon/static/*.css
+!src/reticulum_beacon/static/__init__.py
+!src/reticulum_beacon/static/download.py
+# Legacy location (pre-1.0 repo-root static/)
 static/*.js
 static/*.css
 !static/__init__.py

@@ -204,10 +204,22 @@ class TestFastAPIContract(unittest.TestCase):
 
         self.app = create_app()
 
+    def _auth_headers(self):
+        from reticulum_beacon.api.app import get_api_key
+
+        return {"Authorization": f"Bearer {get_api_key()}"}
+
     def test_app_has_expected_routes(self):
-        """App must register all expected API routes."""
-        route_paths = {r.path for r in self.app.routes}
-        core_routes = {
+        """App must serve all expected API routes.
+
+        FastAPI 0.140+ mounts included routers lazily, so app.routes does not
+        list them eagerly. REST routes are verified via the OpenAPI schema;
+        web UI routes (include_in_schema=False) are verified by real requests
+        through TestClient.
+        """
+        from fastapi.testclient import TestClient
+
+        rest_routes = {
             "/api/v1/status",
             "/api/v1/health",
             "/api/v1/health/self-test",
@@ -217,21 +229,34 @@ class TestFastAPIContract(unittest.TestCase):
             "/api/v1/interfaces",
             "/api/v1/messages",
             "/api/v1/metrics",
+        }
+        web_get_routes = {
             "/api/v1/",
             "/api/v1/web/dashboard-data",
             "/api/v1/web/status-bar",
             "/api/v1/web/messages/inbox",
-            "/api/v1/web/messages/send",
             "/api/v1/web/bots/list",
             "/api/v1/web/bots/available",
-            "/api/v1/web/bots/enable/{name}",
-            "/api/v1/web/bots/disable/{name}",
-            "/api/v1/web/bots/load",
             "/api/v1/web/interfaces",
             "/api/v1/web/peers",
         }
-        for route in core_routes:
-            self.assertIn(route, route_paths, f"Route {route} not registered")
+        web_post_routes = {
+            "/api/v1/web/messages/send",
+            "/api/v1/web/bots/load",
+            "/api/v1/web/bots/enable/echo",
+            "/api/v1/web/bots/disable/echo",
+        }
+        with TestClient(self.app) as client:
+            schema = client.get("/openapi.json", headers=self._auth_headers()).json()
+            paths = set(schema["paths"])
+            for route in rest_routes:
+                self.assertIn(route, paths, f"Route {route} not in OpenAPI schema")
+            for route in web_get_routes:
+                r = client.get(route)
+                self.assertEqual(r.status_code, 200, f"{route} -> {r.status_code}")
+            for route in web_post_routes:
+                # POST-only routes reject GET with 405, proving registration
+                self.assertEqual(client.get(route).status_code, 405, f"{route} missing")
 
     def test_app_has_cors_middleware(self):
         """App must have CORS middleware configured."""
@@ -251,25 +276,36 @@ class TestFastAPIContract(unittest.TestCase):
         self.assertEqual(self.app.title, "Reticulum Beacon API")
 
     def test_app_websocket_route(self):
-        """WebSocket /api/v1/events route must be registered."""
-        route_paths = {r.path for r in self.app.routes}
-        self.assertIn("/api/v1/events", route_paths)
+        """WebSocket /api/v1/events route must accept connections (ping/pong)."""
+        from fastapi.testclient import TestClient
+
+        with TestClient(self.app) as client, client.websocket_connect("/api/v1/events") as ws:
+            ws.send_text("ping")
+            # The server replays recent events on connect; read until pong.
+            for _ in range(100):
+                if ws.receive_json() == {"type": "pong"}:
+                    break
+            else:
+                self.fail("No pong received from /api/v1/events")
 
     def test_health_routes_accept_get(self):
-        """Health check routes must accept GET."""
-        for route in self.app.routes:
-            if hasattr(route, "path") and route.path == "/api/v1/health":
-                self.assertIn("GET", route.methods)
-                return
-        self.fail("Health route not found")
+        """Health check routes must accept GET (503 while the node is stopped)."""
+        from fastapi.testclient import TestClient
+
+        with TestClient(self.app) as client:
+            r = client.get("/api/v1/health")
+            self.assertEqual(r.status_code, 503)  # node stopped in tests
+            self.assertIn("status", r.json())
 
     def test_metrics_route_accepts_get(self):
-        """Metrics route must accept GET."""
-        for route in self.app.routes:
-            if hasattr(route, "path") and route.path == "/api/v1/metrics":
-                self.assertIn("GET", route.methods)
-                return
-        self.fail("Metrics route not found")
+        """Metrics route must accept GET and return Prometheus text."""
+        from fastapi.testclient import TestClient
+
+        with TestClient(self.app) as client:
+            r = client.get("/api/v1/metrics")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("text/plain", r.headers["content-type"])
+            self.assertIn("beacon_uptime_seconds", r.text)
 
 
 class TestStaticFileMounting(unittest.TestCase):

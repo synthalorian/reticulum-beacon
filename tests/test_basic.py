@@ -268,20 +268,27 @@ class TestAPIModule(unittest.TestCase):
         self.assertIsNotNone(create_app)
 
     def test_create_app(self):
-        """Test that create_app returns a FastAPI app."""
-        from reticulum_beacon.api.app import create_app
+        """Test that create_app returns a FastAPI app with all core routes."""
+        from fastapi.testclient import TestClient
+
+        from reticulum_beacon.api.app import create_app, get_api_key
 
         app = create_app()
         self.assertIsNotNone(app)
         self.assertEqual(app.title, "Reticulum Beacon API")
-        # Check routes are registered
-        routes = {r.path for r in app.routes}
-        self.assertIn("/api/v1/status", routes)
-        self.assertIn("/api/v1/health", routes)
-        self.assertIn("/api/v1/peers", routes)
-        self.assertIn("/api/v1/interfaces", routes)
-        self.assertIn("/api/v1/messages", routes)
-        self.assertIn("/api/v1/metrics", routes)
+        # FastAPI 0.140+ mounts included routers lazily, so app.routes does not
+        # list them eagerly. Verify via the OpenAPI schema (materializes all
+        # schema-visible paths) fetched through TestClient.
+        auth = {"Authorization": f"Bearer {get_api_key()}"}
+        with TestClient(app) as client:
+            schema = client.get("/openapi.json", headers=auth).json()
+        paths = set(schema["paths"])
+        self.assertIn("/api/v1/status", paths)
+        self.assertIn("/api/v1/health", paths)
+        self.assertIn("/api/v1/peers", paths)
+        self.assertIn("/api/v1/interfaces", paths)
+        self.assertIn("/api/v1/messages", paths)
+        self.assertIn("/api/v1/metrics", paths)
 
     def test_event_manager(self):
         """Test EventManager pub/sub."""
@@ -583,14 +590,21 @@ class TestSecurity(unittest.TestCase):
     # ── FastAPI auth middleware ──────────────────────────────────────────
 
     def test_fastapi_app_has_auth_middleware(self):
-        """FastAPI app includes auth middleware."""
-        from reticulum_beacon.api.app import create_app
+        """FastAPI app enforces Bearer auth on protected endpoints."""
+        from fastapi.testclient import TestClient
+
+        from reticulum_beacon.api.app import create_app, get_api_key
 
         app = create_app()
-        # The app has middleware; verify routes are registered
-        routes = {r.path for r in app.routes}
-        self.assertIn("/api/v1/status", routes)
-        self.assertIn("/api/v1/health", routes)
+        with TestClient(app) as client:
+            # No credentials -> rejected
+            self.assertEqual(client.get("/api/v1/status").status_code, 403)
+            # Wrong key -> rejected
+            bad = {"Authorization": "Bearer wrong-key"}
+            self.assertEqual(client.get("/api/v1/status", headers=bad).status_code, 403)
+            # Valid key -> allowed
+            good = {"Authorization": f"Bearer {get_api_key()}"}
+            self.assertEqual(client.get("/api/v1/status", headers=good).status_code, 200)
 
     # ── Bot registry security ───────────────────────────────────────────
 
@@ -893,76 +907,96 @@ class TestWebUI(unittest.TestCase):
         self.assertIsNotNone(router)
 
     def test_web_routes_registered(self):
-        """Test that web routes are registered in the FastAPI app."""
-        from reticulum_beacon.api.app import create_app
+        """Test that web routes respond correctly via HTTP."""
+        from fastapi.testclient import TestClient
+
+        from reticulum_beacon.api.app import create_app, get_api_key
 
         app = create_app()
-        routes = {r.path for r in app.routes}
-        # Web UI page routes
-        self.assertIn("/api/v1/", routes)
-        self.assertIn("/api/v1/messages", routes)
-        self.assertIn("/api/v1/bots", routes)
-        self.assertIn("/api/v1/interfaces", routes)
-        # Web UI HTMX fragment routes
-        self.assertIn("/api/v1/web/dashboard-data", routes)
-        self.assertIn("/api/v1/web/status-bar", routes)
-        self.assertIn("/api/v1/web/messages/inbox", routes)
-        self.assertIn("/api/v1/web/bots/list", routes)
-        self.assertIn("/api/v1/web/bots/available", routes)
-        self.assertIn("/api/v1/web/interfaces", routes)
-        self.assertIn("/api/v1/web/peers", routes)
-        # Web UI POST routes
-        self.assertIn("/api/v1/web/messages/send", routes)
-        self.assertIn("/api/v1/web/bots/load", routes)
-        self.assertIn("/api/v1/web/bots/enable/{name}", routes)
-        self.assertIn("/api/v1/web/bots/disable/{name}", routes)
+        auth = {"Authorization": f"Bearer {get_api_key()}"}
+        with TestClient(app) as client:
+            # Web UI dashboard page returns HTML
+            r = client.get("/api/v1/")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("text/html", r.headers["content-type"])
+            # /messages, /bots, /interfaces are shared with the REST API, which
+            # is registered first and takes precedence: they serve JSON (auth
+            # required) rather than HTML pages.
+            for path in ("/api/v1/messages", "/api/v1/bots", "/api/v1/interfaces"):
+                self.assertEqual(client.get(path).status_code, 403)
+                r = client.get(path, headers=auth)
+                self.assertEqual(r.status_code, 200)
+            # Web UI HTMX fragment routes return HTML without auth
+            for path in (
+                "/api/v1/web/dashboard-data",
+                "/api/v1/web/status-bar",
+                "/api/v1/web/messages/inbox",
+                "/api/v1/web/bots/list",
+                "/api/v1/web/bots/available",
+                "/api/v1/web/interfaces",
+                "/api/v1/web/peers",
+            ):
+                r = client.get(path)
+                self.assertEqual(r.status_code, 200, f"{path} -> {r.status_code}")
+                self.assertIn("text/html", r.headers["content-type"])
+            # Web UI POST routes exist (GET is rejected with 405)
+            for path in (
+                "/api/v1/web/messages/send",
+                "/api/v1/web/bots/load",
+                "/api/v1/web/bots/enable/echo",
+                "/api/v1/web/bots/disable/echo",
+            ):
+                self.assertEqual(client.get(path).status_code, 405)
 
     def test_web_pages_return_html(self):
-        """Test that web pages return HTML content type."""
+        """Test that the web dashboard page returns HTML content type."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-
-        # We can't easily call template responses without a request context,
-        # but we can verify the routes accept GET
-        for route in app.routes:
-            if hasattr(route, "methods") and "GET" in route.methods and route.path == "/api/v1/":
-                self.assertIn("GET", route.methods)
+        with TestClient(app) as client:
+            r = client.get("/api/v1/")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("text/html", r.headers["content-type"])
 
     def test_web_send_message_validates_input(self):
         """Test that the send message endpoint validates form input."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-
-        # Verify POST is accepted on send route
-        for route in app.routes:
-            if (
-                hasattr(route, "path")
-                and hasattr(route, "methods")
-                and route.path == "/api/v1/web/messages/send"
-            ):
-                self.assertIn("POST", route.methods)
+        with TestClient(app) as client:
+            # POST route exists; GET is not allowed
+            self.assertEqual(client.get("/api/v1/web/messages/send").status_code, 405)
+            # Missing form fields -> 422 validation error
+            r = client.post("/api/v1/web/messages/send", data={})
+            self.assertEqual(r.status_code, 422)
+            # Non-HTMX POST is rejected by the CSRF header check
+            r = client.post(
+                "/api/v1/web/messages/send",
+                data={"destination": "ab" * 32, "content": "hi"},
+            )
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("Invalid request", r.text)
 
     def test_web_bot_enable_disable_routes(self):
         """Test bot enable/disable routes accept POST."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-
-        for route in app.routes:
-            if (
-                hasattr(route, "path")
-                and hasattr(route, "methods")
-                and route.path == "/api/v1/web/bots/enable/{name}"
-            ):
-                self.assertIn("POST", route.methods)
-            if (
-                hasattr(route, "path")
-                and hasattr(route, "methods")
-                and route.path == "/api/v1/web/bots/disable/{name}"
-            ):
-                self.assertIn("POST", route.methods)
+        with TestClient(app) as client:
+            # GET is not allowed on these POST-only routes
+            self.assertEqual(client.get("/api/v1/web/bots/enable/echo").status_code, 405)
+            self.assertEqual(client.get("/api/v1/web/bots/disable/echo").status_code, 405)
+            # POST toggles return HTML fragments
+            r = client.post("/api/v1/web/bots/enable/echo")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("text/html", r.headers["content-type"])
+            self.assertEqual(client.post("/api/v1/web/bots/disable/echo").status_code, 200)
 
     def test_template_directory_exists(self):
         """Test that template files exist on disk."""
@@ -1075,16 +1109,19 @@ class TestHealthModule(unittest.TestCase):
         self.assertIsNotNone(router)
 
     def test_health_routes_registered(self):
-        """Test that health routes are registered in the FastAPI app."""
+        """Test that health routes respond via HTTP (node stopped in tests)."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-        routes = {r.path for r in app.routes}
-        # Health check routes
-        self.assertIn("/api/v1/health", routes)
-        self.assertIn("/api/v1/health/self-test", routes)
-        self.assertIn("/api/v1/health/history", routes)
-        self.assertIn("/api/v1/health/diagnostics", routes)
+        with TestClient(app) as client:
+            # Node is stopped: liveness-style checks report 503...
+            self.assertEqual(client.get("/api/v1/health").status_code, 503)
+            self.assertEqual(client.get("/api/v1/health/self-test").status_code, 503)
+            # ...while history and diagnostics still serve data.
+            self.assertEqual(client.get("/api/v1/health/history").status_code, 200)
+            self.assertEqual(client.get("/api/v1/health/diagnostics").status_code, 200)
 
     def test_health_returns_stopped_when_node_offline(self):
         """Test health check returns 'stopped' when node is not running."""
@@ -1139,28 +1176,28 @@ class TestMetricsModule(unittest.TestCase):
         self.assertIsNotNone(router)
 
     def test_metrics_routes_registered(self):
-        """Test that metrics routes are registered."""
+        """Test that the metrics endpoint serves Prometheus output."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-        routes = {r.path for r in app.routes}
-        self.assertIn("/api/v1/metrics", routes)
+        with TestClient(app) as client:
+            r = client.get("/api/v1/metrics")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("text/plain", r.headers["content-type"])
 
     def test_metrics_route_exists(self):
-        """Test that the /metrics route accepts GET."""
+        """Test that the /metrics route accepts GET and returns beacon metrics."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-        for route in app.routes:
-            if (
-                hasattr(route, "path")
-                and hasattr(route, "methods")
-                and route.path == "/api/v1/metrics"
-            ):
-                self.assertIn("GET", route.methods)
-                break
-        else:
-            self.fail("/api/v1/metrics route not found")
+        with TestClient(app) as client:
+            r = client.get("/api/v1/metrics")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("beacon_uptime_seconds", r.text)
 
     def test_metrics_helper_functions(self):
         """Test that metrics helper functions exist and are callable."""
@@ -1220,12 +1257,17 @@ class TestMetricsModule(unittest.TestCase):
         self.assertGreater(len(output), 0)
 
     def test_metrics_registered_in_fastapi_app(self):
-        """Test that the metrics router is included in the FastAPI app."""
+        """Test that the metrics endpoint is reachable without auth (scrape-only)."""
+        from fastapi.testclient import TestClient
+
         from reticulum_beacon.api.app import create_app
 
         app = create_app()
-        route_paths = {r.path for r in app.routes}
-        self.assertIn("/api/v1/metrics", route_paths)
+        with TestClient(app) as client:
+            # No Authorization header — metrics is public for Prometheus scrapers
+            r = client.get("/api/v1/metrics")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("beacon_running", r.text)
 
     def test_metrics_auth_skipped(self):
         """Test that metrics endpoint is in the auth skip list."""

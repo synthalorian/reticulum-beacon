@@ -9,8 +9,9 @@ The assets can be downloaded with::
 
 import os
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "static")
-STATIC_DIR = os.path.normpath(STATIC_DIR)
+# Assets live inside the package's own static/ directory so the location is
+# valid for editable installs, wheels, and Docker images alike.
+STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Expected local asset paths
 HTMX_PATH = os.path.join(STATIC_DIR, "htmx.min.js")

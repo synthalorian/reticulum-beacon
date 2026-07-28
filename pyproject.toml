@@ -1,6 +1,6 @@
 [project]
 name = "reticulum-beacon"
-version = "0.1.0"
+version = "1.0.0"
 description = "Personal Reticulum transport node and service hub — one command to join the mesh"
 readme = "README.md"
 license = { text = "Apache-2.0" }

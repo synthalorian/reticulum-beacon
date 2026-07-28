@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Reticulum Beacon API",
         description="REST API and WebSocket interface for Reticulum Beacon",
-        version="0.1.0",
+        version="1.0.0",
         lifespan=lifespan,
     )
 
@@ -146,7 +146,7 @@ def create_app() -> FastAPI:
             or path.startswith("/api/v1/web/")
         ):
             return await call_next(request)
-    # Web UI pages are auth-free (only accessible from localhost by default)
+        # Web UI pages are auth-free (only accessible from localhost by default)
         if path in {"/", "/api/v1/"}:
             return await call_next(request)
 
@@ -181,14 +181,12 @@ def create_app() -> FastAPI:
     # Include web UI routes (HTML pages)
     app.include_router(web_router, prefix="/api/v1")
     # Serve local static assets (HTMX, Tailwind) if downloaded
-    import os as _os
+    from ..static import STATIC_DIR
 
-    _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "static")
-    _static_dir = _os.path.normpath(_static_dir)
-    if _os.path.isdir(_static_dir) and any(f.endswith(".js") for f in _os.listdir(_static_dir)):
+    if os.path.isdir(STATIC_DIR) and any(f.endswith(".js") for f in os.listdir(STATIC_DIR)):
         from fastapi.staticfiles import StaticFiles
 
-        app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     # Root path for web UI (redirects to dashboard)
     from fastapi.responses import RedirectResponse

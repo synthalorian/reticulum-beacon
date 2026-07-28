@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.0.0] - 2026-07-28
+
+### Fixed
+
+- **Test suite modernized for FastAPI 0.140+** — included routers are mounted
+  lazily (`_IncludedRouter`), so tests that introspected `app.routes` could no
+  longer see routes. 13 failing tests (plus 3 vacuously-passing ones) now use
+  `fastapi.testclient.TestClient` and assert on real HTTP responses/status
+  codes; route enumeration uses the OpenAPI schema (`/openapi.json`).
+  Full suite green: 135 passed (91 unit + 44 integration).
+- **Static assets path** — `STATIC_DIR` now points at the package's own
+  `reticulum_beacon/static/` directory instead of a repo-root-relative
+  `../../../static` path that broke outside editable checkouts; the `/static`
+  mount in `api/app.py` uses the same constant.
+
+### Changed
+
+- **README truth pass** — removed or annotated claims that did not match the
+  code: PyPI package and ghcr.io image (not yet published), Serial/RNode
+  config generation, LXMF priority queuing / configurable TTL, the unshipped
+  hardened systemd unit file, and the web page routes shadowed by the REST
+  API (`/api/v1/messages`, `/bots`, `/interfaces` serve JSON — documented as
+  a known limitation).
+- `docs/ANALYSIS_REPORT.md` — moved the AI codebase-analysis artifact out of
+  the repo root.
+
 ## [0.1.0] - 2026-06-01
 
 ### Features

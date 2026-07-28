@@ -83,16 +83,18 @@ beacon api start  # Launch REST API + Web UI
 ### 📡 Transport Node
 - **Auto-discovery** — finds local peers via AutoInterface
 - **TCP peering** — connect to public Reticulum testnet nodes
-- **Serial/RNode** — LoRa radio interface support
 - **Transport mode** — route and forward packets for other nodes
 - **Announce** — broadcast your node's presence
 
+> Additional interface types supported by RNS (RNode/LoRa, serial, I2P, …)
+> can be added by editing the generated Reticulum config by hand; the
+> `beacon` config generator currently emits AutoInterface + TCP client
+> interfaces only.
+
 ### 📨 LXMF Propagation
 - **Store-and-forward** — cache messages for offline peers
-- **Priority queuing** — urgent messages get fast-path delivery
-- **Configurable storage** — TTL, max size, max messages
-- **Delivery tracking** — know when messages were propagated
-- **Peer sync** — exchange propagation data with other nodes
+- **Peer sync** — exchange propagation data with other nodes (`autopeer`)
+- **Delivery identity** — receive LXMF messages addressed to your node
 
 ### 🌐 REST API + Web UI
 - FastAPI-powered REST API on port **8931** by default
@@ -121,30 +123,24 @@ Create LXMF bots with minimal code. Built-in bots:
 
 ## Quick Start
 
-### From PyPI
-```bash
-pip install reticulum-beacon
-```
-
-### From Docker
-```bash
-# Pull and run
-docker run -d \
-  --name beacon \
-  -p 8931:8931 \
-  -v beacon-data:/etc/reticulum-beacon \
-  ghcr.io/synthalorian/reticulum-beacon:latest
-
-# Or build locally
-docker build -t reticulum-beacon .
-docker run -d --name beacon -p 8931:8931 reticulum-beacon
-```
-
 ### From Source
+
+> A PyPI package is planned but not yet published — install from source
+> for now (see `scripts/publish-test-pypi.sh` for the packaging WIP).
+
 ```bash
 git clone https://github.com/synthalorian/reticulum-beacon.git
 cd reticulum-beacon
 pip install -e .
+```
+
+### From Docker
+
+> Images are not published to a registry yet — build locally.
+
+```bash
+docker build -t reticulum-beacon .
+docker run -d --name beacon -p 8931:8931 reticulum-beacon
 ```
 
 ### First Run
@@ -228,10 +224,16 @@ The Web UI is served at `http://localhost:8931/` when the API is running.
 ### Pages
 | Route | Description |
 |-------|------------|
-| `/` | Dashboard — live node stats, propagation, API, bots |
-| `/messages` | Message inbox with send form (hex destination validation) |
-| `/bots` | Bot registry management with enable/disable toggles |
-| `/interfaces` | Interface list and peer discovery |
+| `/api/v1/` | Dashboard — live node stats, propagation, API, bots |
+
+The dashboard is a single-page HTMX app: its panels (messages, bots,
+interfaces, peers) are live fragments served under `/api/v1/web/*`.
+
+> **Known limitation:** the web router also defines full-page routes at
+> `/api/v1/messages`, `/api/v1/bots`, and `/api/v1/interfaces`, but those
+> paths are shared with the REST API, which is registered first and takes
+> precedence (they return JSON, auth required). Use the dashboard and its
+> HTMX fragments instead.
 
 All pages use **HTMX** for live updates without page reloads. The status bar in the sidebar refreshes every 15 seconds.
 
@@ -429,8 +431,6 @@ reticulum-beacon/
 ├── LICENSE                       # Apache 2.0
 ├── pyproject.toml                # Package metadata, deps, tooling config
 ├── README.md
-├── systemd/
-│   └── reticulum-beacon.service  # Hardened systemd unit file
 ├── src/reticulum_beacon/
 │   ├── __init__.py               # Version
 │   ├── main.py                   # Typer CLI entry point
@@ -476,7 +476,7 @@ reticulum-beacon/
 │       └── download.py           # Download HTMX + Tailwind locally
 └── tests/
     ├── test_basic.py             # 91 unit tests (all modules)
-    └── test_integration.py       # 45 integration tests (infrastructure)
+    └── test_integration.py       # 44 integration tests (infrastructure)
 ```
 
 ---
@@ -561,7 +561,10 @@ Format: JSON Lines (newline-delimited JSON). Auto-rotated at 10 MB to `audit.log
 
 ### Systemd Hardening
 
-The systemd unit file applies 10+ security flags:
+> **Planned, not yet shipped.** The hardened `systemd/reticulum-beacon.service`
+> unit file referenced by `beacon install` is not included in the repository
+> yet; `beacon install` will report "Service unit not found" until it is added.
+> The unit is intended to apply 10+ security flags:
 ```
 CapabilityBoundingSet=~CAP_NET_RAW
 ProtectKernelLogs=yes
