@@ -5,7 +5,7 @@ description = "Personal Reticulum transport node and service hub — one command
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "synthalorian" },
+    { name = "synth" },
 ]
 requires-python = ">=3.10"
 dependencies = [
