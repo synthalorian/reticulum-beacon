@@ -50,4 +50,4 @@
 
 ### Authorship
 
-Built by **synthalorian 🎹🤺** with 🎹🦈
+Built by **synth** with 🎹🦈

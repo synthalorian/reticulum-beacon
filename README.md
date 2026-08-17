@@ -679,7 +679,7 @@ Apache License 2.0 — see [LICENSE](LICENSE).
 
 ## Credits
 
-Built by **synthalorian 🎹🤺** ([@synthalorian](https://github.com/synthalorian)).
+Built by **synth** ([@synthalorian](https://github.com/synthalorian)).
 
 ---
 
