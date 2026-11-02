@@ -1,43 +1,5 @@
 version: 2
 updates:
-- package-ecosystem: docker
-  directory: /
-  schedule:
-    day: monday
-    interval: weekly
-  open-pull-requests-limit: 5
-  groups:
-    docker-minor-patch:
-      patterns:
-      - '*'
-      update-types:
-      - minor
-      - patch
-  ignore:
-  - dependency-name: '*'
-    update-types:
-    - version-update:semver-major
-  commit-message:
-    prefix: chore(deps)
-- package-ecosystem: docker-compose
-  directory: /
-  schedule:
-    day: monday
-    interval: weekly
-  open-pull-requests-limit: 5
-  groups:
-    docker-compose-minor-patch:
-      patterns:
-      - '*'
-      update-types:
-      - minor
-      - patch
-  ignore:
-  - dependency-name: '*'
-    update-types:
-    - version-update:semver-major
-  commit-message:
-    prefix: chore(deps)
 - package-ecosystem: github-actions
   directory: /
   schedule:
@@ -47,14 +9,14 @@ updates:
   groups:
     github-actions-minor-patch:
       patterns:
-      - '*'
+      - "*"
       update-types:
       - minor
       - patch
   ignore:
-  - dependency-name: '*'
+  - dependency-name: "*"
     update-types:
-    - version-update:semver-major
+    - "version-update:semver-major"
   commit-message:
     prefix: chore(deps)
 - package-ecosystem: pip
@@ -66,13 +28,51 @@ updates:
   groups:
     pip-minor-patch:
       patterns:
-      - '*'
+      - "*"
       update-types:
       - minor
       - patch
   ignore:
-  - dependency-name: '*'
+  - dependency-name: "*"
     update-types:
-    - version-update:semver-major
+    - "version-update:semver-major"
+  commit-message:
+    prefix: chore(deps)
+- package-ecosystem: docker
+  directory: /
+  schedule:
+    day: monday
+    interval: weekly
+  open-pull-requests-limit: 5
+  groups:
+    docker-minor-patch:
+      patterns:
+      - "*"
+      update-types:
+      - minor
+      - patch
+  ignore:
+  - dependency-name: "*"
+    update-types:
+    - "version-update:semver-major"
+  commit-message:
+    prefix: chore(deps)
+- package-ecosystem: docker-compose
+  directory: /
+  schedule:
+    day: monday
+    interval: weekly
+  open-pull-requests-limit: 5
+  groups:
+    docker-compose-minor-patch:
+      patterns:
+      - "*"
+      update-types:
+      - minor
+      - patch
+  ignore:
+  - dependency-name: "*"
+    update-types:
+    - "version-update:semver-major"
   commit-message:
     prefix: chore(deps)
