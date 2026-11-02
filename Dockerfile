@@ -1,5 +1,5 @@
 # ── Build stage: install runtime deps ────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -11,7 +11,7 @@ RUN pip install --upgrade pip build && \
     python -m build --wheel
 
 # ── Runtime stage: minimal image ─────────────────────────────────────────
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
